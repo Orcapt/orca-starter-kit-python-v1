@@ -2,16 +2,16 @@
 Function Handler Module
 ======================
 
-This module handles all function calling capabilities for the Lexia AI Agent.
+This module handles all function calling capabilities for the Orca AI Agent.
 It contains the function definitions, execution logic, and related utilities.
 
 Key Features:
 - DALL-E 3 image generation function
 - Function schema definitions
 - Function execution and error handling
-- Streaming progress updates to Lexia
+- Streaming progress updates to Orca
 
-Author: Lexia Team
+Author: Orca Team
 License: MIT
 """
 
@@ -20,7 +20,7 @@ import logging
 import os
 import json
 from openai import OpenAI
-from lexia import Variables
+from orca import Variables
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -128,7 +128,7 @@ async def generate_image_with_dalle(
 
 async def execute_function_call(
     function_call: dict, 
-    lexia_handler, 
+    orca_handler, 
     data
 ) -> tuple[str, str]:
     """
@@ -136,7 +136,7 @@ async def execute_function_call(
     
     Args:
         function_call: The function call object from OpenAI
-        lexia_handler: The Lexia handler instance for streaming updates
+        orca_handler: The Orca handler instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -146,12 +146,12 @@ async def execute_function_call(
         function_name = function_call['function']['name']
         logger.info(f"🔧 Processing function: {function_name}")
         
-        # Stream generic function processing start to Lexia
+        # Stream generic function processing start to Orca
         processing_msg = f"\n⚙️ **Processing function:** {function_name}"
-        lexia_handler.stream_chunk(data, processing_msg)
+        orca_handler.stream_chunk(data, processing_msg)
         
         if function_name == "generate_image":
-            return await _execute_generate_image(function_call, lexia_handler, data)
+            return await _execute_generate_image(function_call, orca_handler, data)
         else:
             error_msg = f"Unknown function: {function_name}"
             logger.error(error_msg)
@@ -165,7 +165,7 @@ async def execute_function_call(
 
 async def _execute_generate_image(
     function_call: dict, 
-    lexia_handler, 
+    orca_handler, 
     data
 ) -> tuple[str, str]:
     """
@@ -173,7 +173,7 @@ async def _execute_generate_image(
     
     Args:
         function_call: The function call object from OpenAI
-        lexia_handler: The Lexia handler instance for streaming updates
+        orca_handler: The Orca handler instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -183,12 +183,12 @@ async def _execute_generate_image(
         args = json.loads(function_call["function"]["arguments"])
         logger.info(f"🎨 Executing DALL-E image generation with args: {args}")
         
-        # Stream function execution start to Lexia
+        # Stream function execution start to Orca
         execution_msg = f"\n🚀 **Executing function:** generate_image"
-        lexia_handler.stream_chunk(data, execution_msg)
+        orca_handler.stream_chunk(data, execution_msg)
         
         # Stream image generation start markdown
-        lexia_handler.stream_chunk(data, "[lexia.loading.image.start]")
+        orca_handler.stream_chunk(data, "[orca.loading.image.start]")
         
         # Generate the image using our DALL-E function
         image_url = await generate_image_with_dalle(
@@ -202,17 +202,17 @@ async def _execute_generate_image(
         logger.info(f"✅ DALL-E image generated: {image_url}")
         
         # Stream image generation end markdown
-        lexia_handler.stream_chunk(data, "[lexia.loading.image.end]")
+        orca_handler.stream_chunk(data, "[orca.loading.image.end]")
         
-        # Stream function completion to Lexia
+        # Stream function completion to Orca
         completion_msg = f"\n✅ **Function completed successfully:** generate_image"
-        lexia_handler.stream_chunk(data, completion_msg)
+        orca_handler.stream_chunk(data, completion_msg)
         
         # Add image generation result to response
-        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** [lexia.image.start]{image_url}[lexia.image.end] \n\n*Image created with DALL-E 3*"
+        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** [orca.image.start]{image_url}[orca.image.end] \n\n*Image created with DALL-E 3*"
         
-        # Stream the image result to Lexia
-        lexia_handler.stream_chunk(data, image_result)
+        # Stream the image result to Orca
+        orca_handler.stream_chunk(data, image_result)
         
         logger.info(f"✅ Image generation completed: {image_url}")
         
@@ -235,7 +235,7 @@ def get_available_functions() -> list:
 
 async def process_function_calls(
     function_calls: list, 
-    lexia_handler, 
+    orca_handler, 
     data
 ) -> tuple[str, str]:
     """
@@ -243,7 +243,7 @@ async def process_function_calls(
     
     Args:
         function_calls: List of function call objects from OpenAI
-        lexia_handler: The Lexia handler instance for streaming updates
+        orca_handler: The Orca handler instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -261,7 +261,7 @@ async def process_function_calls(
     
     for function_call in function_calls:
         try:
-            result, file_url = await execute_function_call(function_call, lexia_handler, data)
+            result, file_url = await execute_function_call(function_call, orca_handler, data)
             combined_result += result
             
             if file_url and not generated_file_url:

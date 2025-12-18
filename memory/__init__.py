@@ -4,7 +4,7 @@ Memory Module for AI Agent
 
 Handles conversation memory and history management for the AI agent.
 This module provides a clean, extensible way to manage conversation state
-separate from the Lexia platform.
+separate from the Orca platform.
 
 Features:
 - Thread-based conversation management

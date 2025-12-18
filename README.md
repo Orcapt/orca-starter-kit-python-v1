@@ -1,29 +1,29 @@
-### Run Lexia Frontend locally
+### Run Orca Frontend locally
 
-If you have Node.js installed, you can run the Lexia frontend without source code using the runner:
+If you have Node.js installed, you can run the Orca frontend without source code using the runner:
 
 ```bash
-npx lexia --port=3000 --agent-port=5000
+npx orca --port=3000 --agent-port=5000
 ```
 
 This serves the UI at `http://localhost:3000` and proxies API calls to your local agent at `http://localhost:5000`.
 
 Uploads are available at `POST /api/upload` and files are served under `/uploads/*`.
 
-# Lexia AI Agent Starter Kit
+# Orca AI Agent Starter Kit
 
-A clean, minimal example showing how to build AI agents that integrate with the Lexia platform. This starter kit demonstrates best practices for creating AI agents with proper memory management, streaming responses, and file processing capabilities.
+A clean, minimal example showing how to build AI agents that integrate with the Orca platform. This starter kit demonstrates best practices for creating AI agents with proper memory management, streaming responses, and file processing capabilities.
 
 ## ✨ Features
 
 - **Clean Architecture**: Well-structured, maintainable code with clear separation of concerns
 - **Memory Management**: Built-in conversation history and thread management
 - **File Processing**: Support for PDF text extraction and image analysis
-- **Streaming Responses**: Real-time response streaming via Lexia's infrastructure
-- **Function Calling**: Built-in DALL-E 3 image generation capabilities with Lexia image markdown
+- **Streaming Responses**: Real-time response streaming via Orca's infrastructure
+- **Function Calling**: Built-in DALL-E 3 image generation capabilities with Orca image markdown
 - **Variables Helper**: Modern Variables class for clean API key and configuration management
 - **Error Handling**: Robust error handling and logging throughout
-- **Standard Endpoints**: Inherited endpoints from Lexia package for consistency
+- **Standard Endpoints**: Inherited endpoints from Orca package for consistency
 
 ## 🚀 Quick Start
 
@@ -31,27 +31,29 @@ A clean, minimal example showing how to build AI agents that integrate with the 
 
 - Python 3.8+
 - OpenAI API key
-- Access to Lexia platform
+- Access to Orca platform
 
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
-   git clone https://github.com/Xalantico/lexia-starter-kit-python-v1
-   cd lexia-starter-kit-python-v1
+   git clone https://github.com/Orcapt/orca-starter-kit-python-v1
+   cd orca-starter-kit-python-v1
    ```
 
 2. **Create virtual environment**
+
    ```bash
    python -m venv venv
    source venv/bin/activate  # On Windows: venv\Scripts\activate
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -r requirements.txt
    ```
-
 
 4. **Run the starter kit**
    ```bash
@@ -73,7 +75,7 @@ Once running, you can access:
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
-│   Lexia         │───▶│  Starter Kit     │───▶│   OpenAI        │
+│   Orca          │───▶│  Starter Kit     │───▶│   OpenAI        │
 │  Platform       │    │                  │    │     API         │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
        ▲                        │                        │
@@ -152,10 +154,10 @@ The starter kit supports:
 
 ### Variables Helper Class
 
-The starter kit uses the modern Variables helper class from the Lexia package for clean configuration management:
+The starter kit uses the modern Variables helper class from the Orca package for clean configuration management:
 
 ```python
-from lexia import Variables
+from orca import Variables
 
 # Initialize variables helper
 vars = Variables(data.variables)
@@ -176,33 +178,33 @@ groq_key = vars.get_groq_key()
 - **Clean API**: Object-oriented approach instead of utility functions
 - **Better Performance**: Built-in caching for faster lookups
 - **Flexible**: Easy to change variable names without code changes
-- **Consistent**: Same pattern across all Lexia integrations
+- **Consistent**: Same pattern across all Orca integrations
 
-## 🖼️ Image Generation with Lexia Markdown
+## 🖼️ Image Generation with Orca Markdown
 
-The starter kit includes DALL-E 3 image generation with Lexia's new image markdown functionality:
+The starter kit includes DALL-E 3 image generation with Orca's new image markdown functionality:
 
 ### How It Works
 
-When generating images, the system automatically wraps the process with Lexia's image markdown tags:
+When generating images, the system automatically wraps the process with Orca's image markdown tags:
 
 ```python
 # Before image generation
-lexia_handler.stream_chunk(data, "[lexia.image.start]")
+orca_handler.stream_chunk(data, "[orca.image.start]")
 
 # Generate image with DALL-E 3
 image_url = await generate_image_with_dalle(...)
 
 # After image generation
-lexia_handler.stream_chunk(data, "[lexia.image.end]")
+orca_handler.stream_chunk(data, "[orca.image.end]")
 
 # Include image URL in response
-image_result = f"Image URL: [lexia.image.start]{image_url}[lexia.image.end]"
+image_result = f"Image URL: [orca.image.start]{image_url}[orca.image.end]"
 ```
 
 ### Features
 
-- **Automatic Markdown**: Images are automatically wrapped with Lexia image tags
+- **Automatic Markdown**: Images are automatically wrapped with Orca image tags
 - **Real-time Streaming**: Users see progress during image generation
 - **Error Handling**: Graceful fallback if image generation fails
 - **Customizable**: Easy to modify image parameters (size, quality, style)
@@ -211,22 +213,25 @@ image_result = f"Image URL: [lexia.image.start]{image_url}[lexia.image.end]"
 
 ### 1. Setup ngrok for External Access
 
-To test your agent from the Lexia platform, you'll need to expose your local server to the internet using ngrok:
+To test your agent from the Orca platform, you'll need to expose your local server to the internet using ngrok:
 
 1. **Install ngrok**
+
    ```bash
    # On macOS with Homebrew
    brew install ngrok
-   
+
    # Or download from https://ngrok.com/download
    ```
 
 2. **Start your local server**
+
    ```bash
    python main.py
    ```
 
 3. **Expose your server with ngrok**
+
    ```bash
    ngrok http 8000
    ```
@@ -234,9 +239,9 @@ To test your agent from the Lexia platform, you'll need to expose your local ser
 4. **Copy the ngrok URL**
    ngrok will display a URL like: `https://abc123.ngrok-free.app`
 
-### 2. Configure Agent in Lexia Platform
+### 2. Configure Agent in Orca Platform
 
-1. Go to the [Lexia Platform](https://app.lexiaplatform.com)
+1. Go to the [Orca Platform](https://app.orcaplatform.com)
 2. Navigate to **Agents** → **Create New Agent**
 3. In the **Agent Configuration** section:
    - Set **Agent Type** to "Custom Agent"
@@ -245,7 +250,7 @@ To test your agent from the Lexia platform, you'll need to expose your local ser
 
 ### 3. Test Your Agent
 
-Once configured, test your setup by sending a message through the Lexia platform or directly via curl:
+Once configured, test your setup by sending a message through the Orca platform or directly via curl:
 
 ```bash
 curl -X POST "https://your-ngrok-url.ngrok-free.app/api/v1/send_message" \
@@ -266,9 +271,9 @@ curl -X POST "https://your-ngrok-url.ngrok-free.app/api/v1/send_message" \
 1. **Import Errors**: Ensure all dependencies are installed correctly
 2. **API Key Issues**: The starter kit now provides helpful error messages when the OpenAI API key is missing:
    - "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
-   - This guides users to the correct location in the Lexia platform to configure their API key
+   - This guides users to the correct location in the Orca platform to configure their API key
 3. **Port Conflicts**: Change the port in `main.py` if 8000 is already in use
-4. **Variables Not Found**: Use the Variables helper class to access configuration values from Lexia requests
+4. **Variables Not Found**: Use the Variables helper class to access configuration values from Orca requests
 
 ### Debug Mode
 
@@ -281,7 +286,7 @@ logging.basicConfig(level=logging.DEBUG)
 ## 📖 Code Structure
 
 ```
-lexia-starter-kit/
+orca-starter-kit/
 ├── main.py                 # Main application entry point
 ├── requirements.txt        # Python dependencies
 ├── README.md              # This file
@@ -310,7 +315,7 @@ This starter kit is provided as-is for development and educational purposes.
 For issues and questions:
 
 1. Check the logs for detailed error messages
-2. Review the Lexia platform documentation
+2. Review the Orca platform documentation
 3. Open an issue in this repository
 
 ---

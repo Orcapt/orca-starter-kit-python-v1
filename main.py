@@ -1,8 +1,8 @@
 """
-Lexia AI Agent Starter Kit
+Orca AI Agent Starter Kit
 ==========================
 
-A production-ready starter kit for building AI agents that integrate with the Lexia platform.
+A production-ready starter kit for building AI agents that integrate with the Orca platform.
 This demonstrates best practices for creating AI agents with proper memory management,
 streaming responses, file processing, and function calling capabilities.
 
@@ -10,17 +10,17 @@ Key Features:
 - Clean, maintainable architecture with separation of concerns
 - Built-in conversation memory and thread management
 - Support for PDF text extraction and image analysis
-- Real-time response streaming via Lexia's infrastructure
+- Real-time response streaming via Orca's infrastructure
 - Function calling with DALL-E 3 image generation
 - Robust error handling and comprehensive logging
-- Inherited endpoints from Lexia package for consistency
+- Inherited endpoints from Orca package for consistency
 - Dev mode for local development without Centrifugo
 
 Architecture:
 - Main processing logic in process_message() function
 - Memory management via ConversationManager class
 - Utility functions for OpenAI integration
-- Standard Lexia endpoints inherited from package
+- Standard Orca endpoints inherited from package
 
 Usage:
     python main.py              # Production mode (Centrifugo)
@@ -28,7 +28,7 @@ Usage:
     python main.py --prod       # Force production mode
     
     # Or with environment variable:
-    LEXIA_DEV_MODE=true python main.py
+    ORCA_DEV_MODE=true python main.py
 
 The server will start on http://localhost:8005 with the following endpoints:
 - POST /api/v1/send_message - Main chat endpoint
@@ -38,7 +38,7 @@ The server will start on http://localhost:8005 with the following endpoints:
 - GET /api/v1/stream/{channel} - SSE stream (dev mode only)
 - GET /api/v1/poll/{channel} - Polling endpoint (dev mode only)
 
-Author: Lexia Team
+Author: Orca Team
 License: MIT
 """
 
@@ -60,13 +60,13 @@ logger = logging.getLogger(__name__)
 
 # Import AI agent components
 from memory import ConversationManager
-from lexia import (
-    LexiaHandler, 
+from orca import (
+    OrcaHandler, 
     ChatResponse, 
     ChatMessage, 
     Variable, 
     create_success_response,
-    create_lexia_app,
+    create_orca_app,
     add_standard_endpoints,
     Variables
 )
@@ -82,25 +82,25 @@ elif '--prod' in sys.argv:
     dev_mode_flag = False
     print("🚀 Production mode enabled via --prod flag")
 else:
-    env_val = os.environ.get('LEXIA_DEV_MODE', 'false').lower()
+    env_val = os.environ.get('ORCA_DEV_MODE', 'false').lower()
     dev_mode_flag = env_val in ('true', '1', 'yes', 'y', 'on')
     if dev_mode_flag:
-        print("🔧 Dev mode enabled via LEXIA_DEV_MODE environment variable")
+        print("🔧 Dev mode enabled via ORCA_DEV_MODE environment variable")
 
 # Initialize core services
 conversation_manager = ConversationManager(max_history=10)  # Keep last 10 messages per thread
-lexia = LexiaHandler(dev_mode=dev_mode_flag)
+orca = OrcaHandler(dev_mode=dev_mode_flag)
 
-# Create the FastAPI app using Lexia's web utilities
-app = create_lexia_app(
-    title="Lexia AI Agent Starter Kit",
+# Create the FastAPI app using Orca's web utilities
+app = create_orca_app(
+    title="Orca AI Agent Starter Kit",
     version="1.0.0",
-    description="Production-ready AI agent starter kit with Lexia integration"
+    description="Production-ready AI agent starter kit with Orca integration"
 )
 
 async def process_message(data: ChatMessage) -> None:
     """
-    Process incoming chat messages using OpenAI and send responses via Lexia.
+    Process incoming chat messages using OpenAI and send responses via Orca.
     
     This is the core AI processing function that you can customize for your specific use case.
     The function handles:
@@ -115,10 +115,10 @@ async def process_message(data: ChatMessage) -> None:
         data: ChatMessage object containing the incoming message and metadata
         
     Returns:
-        None: Responses are sent via Lexia's streaming and completion APIs
+        None: Responses are sent via Orca's streaming and completion APIs
         
     Raises:
-        Exception: If message processing fails (errors are sent to Lexia)
+        Exception: If message processing fails (errors are sent to Orca)
         
     Customization Points:
         - Modify system prompts and context
@@ -155,8 +155,8 @@ async def process_message(data: ChatMessage) -> None:
         if not openai_api_key:
             missing_key_msg = "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
             logger.error("OpenAI API key not found or empty in variables")
-            lexia.stream_chunk(data, missing_key_msg)
-            lexia.complete_response(data, missing_key_msg)
+            orca.stream_chunk(data, missing_key_msg)
+            orca.complete_response(data, missing_key_msg)
             return
         
         # Initialize OpenAI client and conversation management
@@ -243,8 +243,8 @@ async def process_message(data: ChatMessage) -> None:
             stream=True
         )
         
-        # Begin a Lexia session (aggregates + streams)
-        session = lexia.begin(data)
+        # Begin an Orca session (aggregates + streams)
+        session = orca.begin(data)
         
         # Process streaming response
         usage_info = None
@@ -257,7 +257,7 @@ async def process_message(data: ChatMessage) -> None:
             # Handle content chunks
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
-                # Stream chunk to Lexia (handles dev/prod mode internally) and aggregate
+                # Stream chunk to Orca (handles dev/prod mode internally) and aggregate
                 session.stream(content)
             
             # Handle function call chunks
@@ -277,7 +277,7 @@ async def process_message(data: ChatMessage) -> None:
                             })
                             logger.info(f"🔧 New function call initialized: {tool_call.function.name}")
                             
-                            # Stream function call announcement to Lexia
+                            # Stream function call announcement to Orca
                             function_msg = f"\n🔧 **Calling function:** {tool_call.function.name}"
                             session.stream(function_msg)
                         
@@ -286,7 +286,7 @@ async def process_message(data: ChatMessage) -> None:
                             function_calls[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
                             logger.info(f"🔧 Accumulated arguments for function {tool_call.index}: {tool_call.function.arguments}")
                             
-                            # Stream function execution progress to Lexia
+                            # Stream function execution progress to Orca
                             try:
                                 import json
                                 current_args = function_calls[tool_call.index]["function"]["arguments"]
@@ -307,14 +307,14 @@ async def process_message(data: ChatMessage) -> None:
         logger.info("✅ OpenAI response stream complete")
         
         # Process function calls if any were made using the function handler
-        function_result, generated_image_url = await process_function_calls(function_calls, lexia, data)
+        function_result, generated_image_url = await process_function_calls(function_calls, orca, data)
         if function_result:
             session.stream(function_result)
         
         logger.info(f"🖼️ Final generated_image_url value: {generated_image_url}")
         
         # Finalize via session (aggregated). Include file_url if available
-        final_text = lexia.close(data, usage_info, file_url=generated_image_url)
+        final_text = orca.close(data, usage_info, file_url=generated_image_url)
         
         # Store response in conversation memory
         conversation_manager.add_message(data.thread_id, "assistant", final_text)
@@ -324,53 +324,53 @@ async def process_message(data: ChatMessage) -> None:
     except Exception as e:
         error_msg = f"Error processing message: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        lexia.send_error(data, error_msg, exception=e) 
+        orca.send_error(data, error_msg, exception=e) 
 
 
-# Add standard Lexia endpoints including the inherited send_message endpoint
+# Add standard Orca endpoints including the inherited send_message endpoint
 # This provides all the standard functionality without additional code
 add_standard_endpoints(
     app, 
     conversation_manager=conversation_manager,
-    lexia_handler=lexia,
+    orca_handler=orca,
     process_message_func=process_message
 )
 
 if __name__ == "__main__":
     import uvicorn
     
-    print("🚀 Starting Lexia AI Agent Starter Kit...")
+    print("🚀 Starting Orca AI Agent Starter Kit...")
     print("=" * 60)
     
     # Display mode
-    if getattr(lexia, 'dev_mode', False):
+    if getattr(orca, 'dev_mode', False):
         print("🔧 DEV MODE ACTIVE - No Centrifugo required!")
-        print("   Use --prod flag or LEXIA_DEV_MODE=false for production")
+        print("   Use --prod flag or ORCA_DEV_MODE=false for production")
     else:
         print("🟢 PRODUCTION MODE - Centrifugo/WebSocket streaming")
-        print("   Use --dev flag or LEXIA_DEV_MODE=true for local development")
+        print("   Use --dev flag or ORCA_DEV_MODE=true for local development")
     
     print("=" * 60)
     print("📖 API Documentation: http://localhost:8005/docs")
     print("🔍 Health Check: http://localhost:8005/api/v1/health")
     print("💬 Chat Endpoint: http://localhost:8005/api/v1/send_message")
     
-    if getattr(lexia, 'dev_mode', False):
+    if getattr(orca, 'dev_mode', False):
         print("📡 SSE Stream: http://localhost:8005/api/v1/stream/{channel}")
         print("📊 Poll Stream: http://localhost:8005/api/v1/poll/{channel}")
     
     print("=" * 60)
     print("\n✨ This starter kit demonstrates:")
-    print("   - Clean integration with Lexia package")
+    print("   - Clean integration with Orca package")
     print("   - Inherited endpoints for common functionality")
     print("   - Customizable AI message processing")
     print("   - Conversation memory management")
     print("   - File processing (PDFs, images)")
     print("   - Function calling with DALL-E 3")
-    print("   - Proper data structure for Lexia communication")
+    print("   - Proper data structure for Orca communication")
     print("   - Comprehensive error handling and logging")
     
-    if getattr(lexia, 'dev_mode', False):
+    if getattr(orca, 'dev_mode', False):
         print("   - Dev mode streaming (SSE, no Centrifugo)")
     else:
         print("   - Production streaming (Centrifugo/WebSocket)")

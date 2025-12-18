@@ -25,7 +25,7 @@ MANIFEST
 venv/
 env/
 ENV/
-lexia_env/
+orca_env/
 .venv/
 .env/
 main2.py

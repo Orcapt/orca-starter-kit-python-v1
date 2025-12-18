@@ -1,13 +1,13 @@
-# Lexia Starter Kit Dependencies
+# Orca Starter Kit Dependencies
 # ==============================
 
-# Core Lexia package
-lexia>=1.2.5
+# Core Orca package
+orca>=1.2.5
 
 # OpenAI API client
 openai>=1.0.0
 
-# Web framework (required for Lexia web functionality)
+# Web framework (required for Orca web functionality)
 fastapi>=0.100.0
 uvicorn>=0.20.0
 
