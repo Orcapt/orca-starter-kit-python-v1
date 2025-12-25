@@ -15,9 +15,7 @@ Author: Orca Team
 License: MIT
 """
 
-import asyncio
 import logging
-import os
 import json
 from openai import OpenAI
 from orca import Variables
@@ -148,7 +146,7 @@ async def execute_function_call(
         
         # Stream generic function processing start to Orca using Session API
         processing_msg = f"\n⚙️ **Processing function:** {function_name}"
-        await asyncio.to_thread(session.stream, processing_msg)
+        session.stream(processing_msg)
         
         if function_name == "generate_image":
             return await _execute_generate_image(function_call, session, data)
@@ -185,10 +183,10 @@ async def _execute_generate_image(
         
         # Stream function execution start to Orca using Session API
         execution_msg = f"\n🚀 **Executing function:** generate_image"
-        await asyncio.to_thread(session.stream, execution_msg)
+        session.stream(execution_msg)
         
         # Start loading indicator for image generation
-        await asyncio.to_thread(session.loading.start, "image")
+        session.loading.start("image")
         
         # Generate the image using our DALL-E function
         image_url = await generate_image_with_dalle(
@@ -202,23 +200,23 @@ async def _execute_generate_image(
         logger.info(f"✅ DALL-E image generated: {image_url}")
         
         # End loading indicator
-        await asyncio.to_thread(session.loading.end, "image")
+        session.loading.end("image")
         
         # Stream function completion to Orca
         completion_msg = f"\n✅ **Function completed successfully:** generate_image"
-        await asyncio.to_thread(session.stream, completion_msg)
+        session.stream(completion_msg)
         
         # Add image generation result to response
         image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** "
         
         # Stream the image result to Orca using Session image method
-        await asyncio.to_thread(session.stream, image_result)
-        await asyncio.to_thread(session.image, image_url)
-        await asyncio.to_thread(session.stream, "\n\n*Image created with DALL-E 3*")
+        session.stream(image_result)
+        session.image.send(image_url)
+        session.stream("\n\n*Image created with DALL-E 3*")
         
         logger.info(f"✅ Image generation completed: {image_url}")
         
-        return image_result + f"[orca.image.start]{image_url}[orca.image.end]", image_url
+        return image_result , image_url
         
     except Exception as e:
         error_msg = f"Error executing generate_image function: {str(e)}"

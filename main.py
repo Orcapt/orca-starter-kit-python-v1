@@ -30,11 +30,11 @@ Usage:
     # Or with environment variable:
     ORCA_DEV_MODE=true python main.py
 
-The server will start on http://localhost:8005 with the following endpoints:
+The server will start on http://localhost:5001 with the following endpoints:
 - POST /api/v1/send_message - Main chat endpoint
 - GET /api/v1/health - Health check
 - GET /api/v1/ - Root information
-- GET /api/v1/docs - Interactive API documentation
+- GET /docs - Interactive API documentation (dev mode)
 - GET /api/v1/stream/{channel} - SSE stream (dev mode only)
 - GET /api/v1/poll/{channel} - Polling endpoint (dev mode only)
 
@@ -52,15 +52,14 @@ import tiktoken
 import PyPDF2
 import io
 
-# Configure logging with informative format
+# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-# Import AI agent components
-from memory import ConversationManager
+# Import Orca SDK components
 from orca import (
     OrcaHandler, 
     ChatMessage, 
@@ -69,6 +68,9 @@ from orca import (
     Variables
 )
 from orca.utils.environment import set_env_variables
+
+# Import local agent components
+from memory import ConversationManager
 from agent_utils import format_system_prompt, format_messages_for_openai
 from function_handler import get_available_functions, process_function_calls
 
@@ -76,15 +78,15 @@ from function_handler import get_available_functions, process_function_calls
 dev_mode_flag = None
 if '--dev' in sys.argv:
     dev_mode_flag = True
-    print("🔧 Dev mode enabled via --dev flag")
+    logger.info("🔧 Dev mode enabled via --dev flag")
 elif '--prod' in sys.argv:
     dev_mode_flag = False
-    print("🚀 Production mode enabled via --prod flag")
+    logger.info("🚀 Production mode enabled via --prod flag")
 else:
     env_val = os.environ.get('ORCA_DEV_MODE', 'false').lower()
     dev_mode_flag = env_val in ('true', '1', 'yes', 'y', 'on')
     if dev_mode_flag:
-        print("🔧 Dev mode enabled via ORCA_DEV_MODE environment variable")
+        logger.info("🔧 Dev mode enabled via ORCA_DEV_MODE environment variable")
 
 # Initialize core services
 conversation_manager = ConversationManager(max_history=10)  # Keep last 10 messages per thread
@@ -94,7 +96,8 @@ orca = OrcaHandler(dev_mode=dev_mode_flag)
 app = create_orca_app(
     title="Orca AI Agent Starter Kit",
     version="1.0.0",
-    description="Production-ready AI agent starter kit with Orca integration"
+    description="Production-ready AI agent starter kit with Orca integration",
+    debug=dev_mode_flag  # Enable debug mode in dev
 )
 
 async def process_message(data: ChatMessage) -> None:
@@ -126,29 +129,14 @@ async def process_message(data: ChatMessage) -> None:
         - Implement specialized file processing
         - Customize error handling and logging
     """
+    session = None
     try:
-        # Log comprehensive request information for debugging
-        logger.info("=" * 80)
-        logger.info("📥 FULL REQUEST BODY RECEIVED:")
-        logger.info("=" * 80)
-        logger.info(f"Thread ID: {data.thread_id}")
-        logger.info(f"Message: {data.message}")
-        logger.info(f"Response UUID: {data.response_uuid}")
-        logger.info(f"Model: {data.model}")
-        logger.info(f"System Message: {data.system_message}")
-        logger.info(f"Project System Message: {data.project_system_message}")
-        logger.info(f"Variables: {data.variables}")
-        logger.info(f"Stream URL: {getattr(data, 'stream_url', 'Not provided')}")
-        logger.info(f"Stream Token: {getattr(data, 'stream_token', 'Not provided')}")
-        logger.info(f"Full data object: {data}")
-        logger.info("=" * 80)
-        
-        # Log key processing information
+        # Log request information
         logger.info(f"🚀 Processing message for thread {data.thread_id}")
         logger.info(f"📝 Message: {data.message[:100]}...")
         logger.info(f"🔑 Response UUID: {data.response_uuid}")
         
-        # Create session using new Session API
+        # Create session using Session API
         session = orca.begin(data)
         
         # Set env variables from Orca payload
@@ -158,7 +146,11 @@ async def process_message(data: ChatMessage) -> None:
         vars = Variables(data.variables)
         openai_api_key = vars.get("OPENAI_API_KEY")
         if not openai_api_key:
-            missing_key_msg = "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
+            missing_key_msg = (
+                "Sorry, the OpenAI API key is missing or empty. "
+                "From menu right go to admin mode, then agents and edit the agent "
+                "in last section you can set the openai key."
+            )
             logger.error("OpenAI API key not found or empty in variables")
             session.stream(missing_key_msg)
             session.close()
@@ -259,12 +251,11 @@ async def process_message(data: ChatMessage) -> None:
             # Handle content chunks
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
-                # Stream chunk using Session API (non-blocking)
-                await asyncio.to_thread(session.stream, content)
+                # Stream chunk using Session API (synchronous method)
+                session.stream(content)
             
             # Handle function call chunks
             if chunk.choices[0].delta.tool_calls:
-                logger.info(f"🔧 Tool call chunk detected: {chunk.choices[0].delta.tool_calls}")
                 for tool_call in chunk.choices[0].delta.tool_calls:
                     if tool_call.function:
                         # Initialize function call if it's new
@@ -277,29 +268,15 @@ async def process_message(data: ChatMessage) -> None:
                                     "arguments": ""
                                 }
                             })
-                            logger.info(f"🔧 New function call initialized: {tool_call.function.name}")
+                            logger.info(f"🔧 New function call: {tool_call.function.name}")
                             
                             # Stream function call announcement to Orca
                             function_msg = f"\n🔧 **Calling function:** {tool_call.function.name}"
-                            await asyncio.to_thread(session.stream, function_msg)
+                            session.stream(function_msg)
                         
                         # Accumulate function arguments
                         if tool_call.function.arguments:
                             function_calls[tool_call.index]["function"]["arguments"] += tool_call.function.arguments
-                            logger.info(f"🔧 Accumulated arguments for function {tool_call.index}: {tool_call.function.arguments}")
-                            
-                            # Stream function execution progress to Orca
-                            try:
-                                import json
-                                current_args = function_calls[tool_call.index]["function"]["arguments"]
-                                # Try to parse as JSON to show progress
-                                if current_args.endswith('"') or current_args.endswith('}') or current_args.endswith(']'):
-                                    parsed_args = json.loads(current_args)
-                                    progress_msg = f"\n⚙️ **Function parameters:** {json.dumps(parsed_args, indent=2)}"
-                                    await asyncio.to_thread(session.stream, progress_msg)
-                            except json.JSONDecodeError:
-                                # JSON not complete yet, don't stream partial data
-                                pass
             
             # Capture usage information from the last chunk
             if chunk.usage:
@@ -311,12 +288,12 @@ async def process_message(data: ChatMessage) -> None:
         # Process function calls if any were made using the function handler
         function_result, generated_image_url = await process_function_calls(function_calls, session, data)
         if function_result:
-            await asyncio.to_thread(session.stream, function_result)
+            session.stream(function_result)
         
-        logger.info(f"🖼️ Final generated_image_url value: {generated_image_url}")
+        logger.info(f"🖼️ Generated image URL: {generated_image_url}")
         
         # Close session with usage info and file URL (completes the response)
-        final_text = await asyncio.to_thread(session.close, usage_info=usage_info, file_url=generated_image_url)
+        final_text = session.close(usage_info=usage_info, file_url=generated_image_url)
         
         # Store response in conversation memory
         conversation_manager.add_message(data.thread_id, "assistant", final_text)
@@ -327,9 +304,9 @@ async def process_message(data: ChatMessage) -> None:
         error_msg = f"Error processing message: {str(e)}"
         logger.error(error_msg, exc_info=True)
         # Use Session error method if session exists, otherwise create one
-        if 'session' not in locals():
+        if session is None:
             session = orca.begin(data)
-        await asyncio.to_thread(session.error, error_msg, exception=e) 
+        session.error(error_msg, exception=e) 
 
 
 # Add standard Orca endpoints including the inherited send_message endpoint
@@ -344,11 +321,13 @@ add_standard_endpoints(
 if __name__ == "__main__":
     import uvicorn
     
+    port = int(os.environ.get('ORCA_PORT', '5001'))
+    
     print("🚀 Starting Orca AI Agent Starter Kit...")
     print("=" * 60)
     
     # Display mode
-    if getattr(orca, 'dev_mode', False):
+    if orca.dev_mode:
         print("🔧 DEV MODE ACTIVE - No Centrifugo required!")
         print("   Use --prod flag or ORCA_DEV_MODE=false for production")
     else:
@@ -356,26 +335,25 @@ if __name__ == "__main__":
         print("   Use --dev flag or ORCA_DEV_MODE=true for local development")
     
     print("=" * 60)
-    print("📖 API Documentation: http://localhost:8005/docs")
-    print("🔍 Health Check: http://localhost:8005/api/v1/health")
-    print("💬 Chat Endpoint: http://localhost:8005/api/v1/send_message")
+    print(f"📖 API Documentation: http://localhost:{port}/docs")
+    print(f"🔍 Health Check: http://localhost:{port}/api/v1/health")
+    print(f"💬 Chat Endpoint: http://localhost:{port}/api/v1/send_message")
     
-    if getattr(orca, 'dev_mode', False):
-        print("📡 SSE Stream: http://localhost:8005/api/v1/stream/{channel}")
-        print("📊 Poll Stream: http://localhost:8005/api/v1/poll/{channel}")
+    if orca.dev_mode:
+        print(f"📡 SSE Stream: http://localhost:{port}/api/v1/stream/{{channel}}")
+        print(f"📊 Poll Stream: http://localhost:{port}/api/v1/poll/{{channel}}")
     
     print("=" * 60)
     print("\n✨ This starter kit demonstrates:")
-    print("   - Clean integration with Orca package")
-    print("   - Inherited endpoints for common functionality")
+    print("   - Clean integration with Orca SDK")
+    print("   - Standard endpoints for common functionality")
     print("   - Customizable AI message processing")
     print("   - Conversation memory management")
     print("   - File processing (PDFs, images)")
     print("   - Function calling with DALL-E 3")
-    print("   - Proper data structure for Orca communication")
     print("   - Comprehensive error handling and logging")
     
-    if getattr(orca, 'dev_mode', False):
+    if orca.dev_mode:
         print("   - Dev mode streaming (SSE, no Centrifugo)")
     else:
         print("   - Production streaming (Centrifugo/WebSocket)")
@@ -387,4 +365,4 @@ if __name__ == "__main__":
     print("=" * 60)
     
     # Start the FastAPI server
-    uvicorn.run(app, host="0.0.0.0", port=5001)
+    uvicorn.run(app, host="0.0.0.0", port=port)

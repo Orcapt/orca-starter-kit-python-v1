@@ -60,14 +60,15 @@ A clean, minimal example showing how to build AI agents that integrate with the 
    python main.py
    ```
 
-The server will start on `http://localhost:8000`
+The server will start on `http://localhost:5001` (configurable via `ORCA_PORT` environment variable)
 
 ## 📚 API Documentation
 
 Once running, you can access:
 
-- **Health Check**: `http://localhost:8000/api/v1/health`
-- **Chat Endpoint**: `http://localhost:8000/api/v1/send_message`
+- **Health Check**: `http://localhost:5001/api/v1/health`
+- **Chat Endpoint**: `http://localhost:5001/api/v1/send_message`
+- **API Docs**: `http://localhost:5001/docs` (dev mode only)
 
 ## 🏗️ Architecture
 
@@ -110,6 +111,13 @@ Edit the `process_message()` function in `main.py` to customize:
 - Model parameters (temperature, max_tokens, etc.)
 - Response processing logic
 - Error handling strategies
+
+The starter kit follows Orca SDK patterns and best practices:
+
+- Uses `OrcaHandler` and Session API for streaming
+- Leverages `create_orca_app()` and `add_standard_endpoints()` for FastAPI setup
+- Uses `Variables` helper class for configuration management
+- Follows clean architecture principles with separation of concerns
 
 ### Add New Capabilities
 
@@ -154,7 +162,7 @@ The starter kit supports:
 
 ### Variables Helper Class
 
-The starter kit uses the modern Variables helper class from the Orca package for clean configuration management:
+The starter kit uses the Variables helper class from the Orca SDK for clean configuration management:
 
 ```python
 from orca import Variables
@@ -167,18 +175,15 @@ openai_key = vars.get("OPENAI_API_KEY")
 custom_config = vars.get("CUSTOM_CONFIG")
 database_url = vars.get("DATABASE_URL")
 
-# Convenience methods
-openai_key = vars.get_openai_key()
-anthropic_key = vars.get_anthropic_key()
-groq_key = vars.get_groq_key()
+# Convenience methods (if available)
+openai_key = vars.get("OPENAI_API_KEY")
 ```
 
 ### Benefits of Variables Helper
 
-- **Clean API**: Object-oriented approach instead of utility functions
-- **Better Performance**: Built-in caching for faster lookups
-- **Flexible**: Easy to change variable names without code changes
-- **Consistent**: Same pattern across all Orca integrations
+- **Clean API**: Object-oriented approach for configuration access
+- **Type Safety**: Integrated with Pydantic models
+- **Consistent**: Same pattern across all Orca SDK integrations
 
 ## 🖼️ Image Generation with Orca Markdown
 
@@ -233,7 +238,7 @@ To test your agent from the Orca platform, you'll need to expose your local serv
 3. **Expose your server with ngrok**
 
    ```bash
-   ngrok http 8000
+   ngrok http 5001
    ```
 
 4. **Copy the ngrok URL**
@@ -277,7 +282,17 @@ curl -X POST "https://your-ngrok-url.ngrok-free.app/api/v1/send_message" \
 
 ### Debug Mode
 
-Enable detailed logging by modifying the log level in `main.py`:
+The starter kit includes debug mode support:
+
+```bash
+# Enable debug mode (shows API docs and detailed logs)
+python main.py --dev
+
+# Or set environment variable
+ORCA_DEV_MODE=true python main.py
+```
+
+You can also customize logging by modifying the log level in `main.py`:
 
 ```python
 logging.basicConfig(level=logging.DEBUG)
