@@ -1,8 +1,8 @@
 # Orca Starter Kit Dependencies
 # ==============================
 
-# Core Orca package
-orca>=1.2.5
+# Core Orca package - install from local path
+-e ../orca-pip
 
 # OpenAI API client
 openai>=1.0.0

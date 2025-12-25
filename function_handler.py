@@ -128,7 +128,7 @@ async def generate_image_with_dalle(
 
 async def execute_function_call(
     function_call: dict, 
-    orca_handler, 
+    session, 
     data
 ) -> tuple[str, str]:
     """
@@ -136,7 +136,7 @@ async def execute_function_call(
     
     Args:
         function_call: The function call object from OpenAI
-        orca_handler: The Orca handler instance for streaming updates
+        session: The Orca Session instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -146,12 +146,12 @@ async def execute_function_call(
         function_name = function_call['function']['name']
         logger.info(f"🔧 Processing function: {function_name}")
         
-        # Stream generic function processing start to Orca
+        # Stream generic function processing start to Orca using Session API
         processing_msg = f"\n⚙️ **Processing function:** {function_name}"
-        orca_handler.stream_chunk(data, processing_msg)
+        await asyncio.to_thread(session.stream, processing_msg)
         
         if function_name == "generate_image":
-            return await _execute_generate_image(function_call, orca_handler, data)
+            return await _execute_generate_image(function_call, session, data)
         else:
             error_msg = f"Unknown function: {function_name}"
             logger.error(error_msg)
@@ -165,7 +165,7 @@ async def execute_function_call(
 
 async def _execute_generate_image(
     function_call: dict, 
-    orca_handler, 
+    session, 
     data
 ) -> tuple[str, str]:
     """
@@ -173,7 +173,7 @@ async def _execute_generate_image(
     
     Args:
         function_call: The function call object from OpenAI
-        orca_handler: The Orca handler instance for streaming updates
+        session: The Orca Session instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -183,12 +183,12 @@ async def _execute_generate_image(
         args = json.loads(function_call["function"]["arguments"])
         logger.info(f"🎨 Executing DALL-E image generation with args: {args}")
         
-        # Stream function execution start to Orca
+        # Stream function execution start to Orca using Session API
         execution_msg = f"\n🚀 **Executing function:** generate_image"
-        orca_handler.stream_chunk(data, execution_msg)
+        await asyncio.to_thread(session.stream, execution_msg)
         
-        # Stream image generation start markdown
-        orca_handler.stream_chunk(data, "[orca.loading.image.start]")
+        # Start loading indicator for image generation
+        await asyncio.to_thread(session.loading.start, "image")
         
         # Generate the image using our DALL-E function
         image_url = await generate_image_with_dalle(
@@ -201,22 +201,24 @@ async def _execute_generate_image(
         
         logger.info(f"✅ DALL-E image generated: {image_url}")
         
-        # Stream image generation end markdown
-        orca_handler.stream_chunk(data, "[orca.loading.image.end]")
+        # End loading indicator
+        await asyncio.to_thread(session.loading.end, "image")
         
         # Stream function completion to Orca
         completion_msg = f"\n✅ **Function completed successfully:** generate_image"
-        orca_handler.stream_chunk(data, completion_msg)
+        await asyncio.to_thread(session.stream, completion_msg)
         
         # Add image generation result to response
-        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** [orca.image.start]{image_url}[orca.image.end] \n\n*Image created with DALL-E 3*"
+        image_result = f"\n\n🎨 **Image Generated Successfully!**\n\n**Prompt:** {args.get('prompt')}\n**Image URL:** "
         
-        # Stream the image result to Orca
-        orca_handler.stream_chunk(data, image_result)
+        # Stream the image result to Orca using Session image method
+        await asyncio.to_thread(session.stream, image_result)
+        await asyncio.to_thread(session.image, image_url)
+        await asyncio.to_thread(session.stream, "\n\n*Image created with DALL-E 3*")
         
         logger.info(f"✅ Image generation completed: {image_url}")
         
-        return image_result, image_url
+        return image_result + f"[orca.image.start]{image_url}[orca.image.end]", image_url
         
     except Exception as e:
         error_msg = f"Error executing generate_image function: {str(e)}"
@@ -235,7 +237,7 @@ def get_available_functions() -> list:
 
 async def process_function_calls(
     function_calls: list, 
-    orca_handler, 
+    session, 
     data
 ) -> tuple[str, str]:
     """
@@ -243,7 +245,7 @@ async def process_function_calls(
     
     Args:
         function_calls: List of function call objects from OpenAI
-        orca_handler: The Orca handler instance for streaming updates
+        session: The Orca Session instance for streaming updates
         data: The original chat message data
         
     Returns:
@@ -261,7 +263,7 @@ async def process_function_calls(
     
     for function_call in function_calls:
         try:
-            result, file_url = await execute_function_call(function_call, orca_handler, data)
+            result, file_url = await execute_function_call(function_call, session, data)
             combined_result += result
             
             if file_url and not generated_file_url:

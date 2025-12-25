@@ -44,6 +44,7 @@ License: MIT
 
 import sys
 import logging
+import asyncio
 from openai import OpenAI
 import os
 import requests
@@ -62,14 +63,12 @@ logger = logging.getLogger(__name__)
 from memory import ConversationManager
 from orca import (
     OrcaHandler, 
-    ChatResponse, 
     ChatMessage, 
-    Variable, 
-    create_success_response,
     create_orca_app,
     add_standard_endpoints,
     Variables
 )
+from orca.utils.environment import set_env_variables
 from agent_utils import format_system_prompt, format_messages_for_openai
 from function_handler import get_available_functions, process_function_calls
 
@@ -149,14 +148,20 @@ async def process_message(data: ChatMessage) -> None:
         logger.info(f"📝 Message: {data.message[:100]}...")
         logger.info(f"🔑 Response UUID: {data.response_uuid}")
         
+        # Create session using new Session API
+        session = orca.begin(data)
+        
+        # Set env variables from Orca payload
+        set_env_variables(variables=data.variables)
+        
         # Get OpenAI API key using Variables helper class
         vars = Variables(data.variables)
         openai_api_key = vars.get("OPENAI_API_KEY")
         if not openai_api_key:
             missing_key_msg = "Sorry, the OpenAI API key is missing or empty. From menu right go to admin mode, then agents and edit the agent in last section you can set the openai key."
             logger.error("OpenAI API key not found or empty in variables")
-            orca.stream_chunk(data, missing_key_msg)
-            orca.complete_response(data, missing_key_msg)
+            session.stream(missing_key_msg)
+            session.close()
             return
         
         # Initialize OpenAI client and conversation management
@@ -243,9 +248,6 @@ async def process_message(data: ChatMessage) -> None:
             stream=True
         )
         
-        # Begin an Orca session (aggregates + streams)
-        session = orca.begin(data)
-        
         # Process streaming response
         usage_info = None
         function_calls = []
@@ -257,8 +259,8 @@ async def process_message(data: ChatMessage) -> None:
             # Handle content chunks
             if chunk.choices[0].delta.content:
                 content = chunk.choices[0].delta.content
-                # Stream chunk to Orca (handles dev/prod mode internally) and aggregate
-                session.stream(content)
+                # Stream chunk using Session API (non-blocking)
+                await asyncio.to_thread(session.stream, content)
             
             # Handle function call chunks
             if chunk.choices[0].delta.tool_calls:
@@ -279,7 +281,7 @@ async def process_message(data: ChatMessage) -> None:
                             
                             # Stream function call announcement to Orca
                             function_msg = f"\n🔧 **Calling function:** {tool_call.function.name}"
-                            session.stream(function_msg)
+                            await asyncio.to_thread(session.stream, function_msg)
                         
                         # Accumulate function arguments
                         if tool_call.function.arguments:
@@ -294,7 +296,7 @@ async def process_message(data: ChatMessage) -> None:
                                 if current_args.endswith('"') or current_args.endswith('}') or current_args.endswith(']'):
                                     parsed_args = json.loads(current_args)
                                     progress_msg = f"\n⚙️ **Function parameters:** {json.dumps(parsed_args, indent=2)}"
-                                    session.stream(progress_msg)
+                                    await asyncio.to_thread(session.stream, progress_msg)
                             except json.JSONDecodeError:
                                 # JSON not complete yet, don't stream partial data
                                 pass
@@ -307,14 +309,14 @@ async def process_message(data: ChatMessage) -> None:
         logger.info("✅ OpenAI response stream complete")
         
         # Process function calls if any were made using the function handler
-        function_result, generated_image_url = await process_function_calls(function_calls, orca, data)
+        function_result, generated_image_url = await process_function_calls(function_calls, session, data)
         if function_result:
-            session.stream(function_result)
+            await asyncio.to_thread(session.stream, function_result)
         
         logger.info(f"🖼️ Final generated_image_url value: {generated_image_url}")
         
-        # Finalize via session (aggregated). Include file_url if available
-        final_text = orca.close(data, usage_info, file_url=generated_image_url)
+        # Close session with usage info and file URL (completes the response)
+        final_text = await asyncio.to_thread(session.close, usage_info=usage_info, file_url=generated_image_url)
         
         # Store response in conversation memory
         conversation_manager.add_message(data.thread_id, "assistant", final_text)
@@ -324,7 +326,10 @@ async def process_message(data: ChatMessage) -> None:
     except Exception as e:
         error_msg = f"Error processing message: {str(e)}"
         logger.error(error_msg, exc_info=True)
-        orca.send_error(data, error_msg, exception=e) 
+        # Use Session error method if session exists, otherwise create one
+        if 'session' not in locals():
+            session = orca.begin(data)
+        await asyncio.to_thread(session.error, error_msg, exception=e) 
 
 
 # Add standard Orca endpoints including the inherited send_message endpoint
