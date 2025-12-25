@@ -2,7 +2,7 @@
 # ==============================
 
 # Core Orca package - install from local path
--e ../orca-pip
+orcapt-sdk>=1.0.3
 
 # OpenAI API client
 openai>=1.0.0
